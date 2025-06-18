@@ -1,12 +1,20 @@
-all: lint build run
+.PHONY: lint build test
+
+check: lint build test
+
 lint:
 	go mod tidy
 	golangci-lint run
 
 build:
- 	go build -o bin/cli ./cmd/cli
+	go build -o bin/client ./cmd/client
 	go build -o bin/server ./cmd/server
 
-run:
+test:
+	go test -v ./...
+
+run-server:
 	go run ./cmd/server
-	go run ./cmd/cli
+
+run-client:
+	go run ./cmd/client
