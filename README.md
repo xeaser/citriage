@@ -94,3 +94,4 @@ A `Makefile` is provided to simplify common operations.
 - Better Error handling for api responses with error contract in json with log data
 - Stop Signals for server
 - Open API Spec for log proxy server
+- Functions comments for understanding and go doc integration
