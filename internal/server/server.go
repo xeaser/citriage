@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/xeaser/citriage/config"
+	"github.com/xeaser/citriage/internal/cache"
 )
 
 const (
@@ -16,41 +17,46 @@ const (
 )
 
 type Server struct {
-	cfg    *config.Config
-	logger *slog.Logger
-	router *mux.Router
+	cfg        *config.Config
+	logger     *slog.Logger
+	router     *mux.Router
+	handler    http.Handler
+	downloader *cache.Downloader
 }
 
-func New(cfg *config.Config, logger *slog.Logger) *Server {
+func New(cfg *config.Config, logger *slog.Logger, downloader *cache.Downloader) *Server {
 	return &Server{
-		cfg:    cfg,
-		logger: logger,
-		router: mux.NewRouter(),
+		cfg:        cfg,
+		logger:     logger,
+		router:     mux.NewRouter(),
+		downloader: downloader,
 	}
 }
 
 func (s *Server) ListenAndServe(ctx context.Context) {
 	s.registerHandlers()
+	s.handler = s.router
 
 	if err := s.printRoutes(); err != nil {
-		s.logger.WarnContext(ctx, "Unable to print server routes", err)
+		s.logger.WarnContext(ctx, fmt.Sprintf("Unable to print server routes, err: %v", err))
 	}
 
 	s.StartServer(ctx)
 }
 
 func (s *Server) StartServer(ctx context.Context) *http.Server {
-	if s.cfg.ServerConfig.Port == 0 {
+	if s.cfg.Server.Port == 0 {
 		s.logger.ErrorContext(ctx, "Server port not in config, using default port")
-		s.cfg.ServerConfig.Port = 8080
+		s.cfg.Server.Port = serverDefaultPort
 	}
 
 	srv := &http.Server{
-		Addr: fmt.Sprintf("%v:%v", s.cfg.ServerConfig.Host, s.cfg.ServerConfig.Port),
+		Addr:    fmt.Sprintf("%v:%v", s.cfg.Server.Host, s.cfg.Server.Port),
+		Handler: s.handler,
 	}
 
 	go func() {
-		s.logger.InfoContext(ctx, fmt.Sprintf("Starting HTTP Server on Port: %d", s.cfg.ServerConfig.Port))
+		s.logger.InfoContext(ctx, fmt.Sprintf("Starting HTTP Server on Port: %d", s.cfg.Server.Port))
 		if err := srv.ListenAndServe(); err != nil {
 			log.Fatalf("Unable to start HTTP server, err : %v", err)
 		}
@@ -66,15 +72,11 @@ func (s *Server) printRoutes() error {
 		if err != nil {
 			return err
 		}
-		queriesTemplate, err := route.GetQueriesTemplates()
-		if err != nil {
-			return err
-		}
 		methods, err := route.GetMethods()
 		if err != nil {
 			return err
 		}
-		s.logger.Info(fmt.Sprintf("Path: %v, Method: %v, QueriesTemplate: %v", pathTemplate, methods, queriesTemplate))
+		s.logger.Info(fmt.Sprintf("Path: %v, Method: %v", pathTemplate, methods))
 		return nil
 	})
 }

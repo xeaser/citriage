@@ -1,7 +1,7 @@
 package server
 
-import "github.com/xeaser/citriage/internal/buildsapi"
+import "github.com/xeaser/citriage/internal/logsapi"
 
 func (s *Server) registerHandlers() {
-	buildsapi.RegisterHandlers(s.router, s.cfg, s.logger)
+	logsapi.RegisterHandlers(s.router, s.cfg, s.logger, s.downloader)
 }

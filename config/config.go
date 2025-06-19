@@ -14,16 +14,22 @@ const (
 )
 
 type Config struct {
-	ClientConfig ClientConfig
-	ServerConfig ServerConfig
+	HttpClient HttpClient
+	Server     Server
+	Cache      Cache
 }
 
-type ClientConfig struct {
+type HttpClient struct {
+	TimeoutSecs int
 }
 
-type ServerConfig struct {
+type Server struct {
 	Host string
 	Port int
+}
+
+type Cache struct {
+	Dir string
 }
 
 var config Config
@@ -59,12 +65,20 @@ func loadConfig() error {
 	}
 
 	config = c
+	config.Cache.Dir = GetCachingDir(env)
 	return nil
 }
 
 func GetConfigPath(env string) string {
 	if env == envLocal {
-		return "../../config/config-local.yaml"
+		return "../../config/config.yaml"
 	}
-	return "../../config/config.yaml"
+	return "./config/config.yaml"
+}
+
+func GetCachingDir(env string) string {
+	if env == envLocal {
+		return "../../.cache"
+	}
+	return "./.cache"
 }
