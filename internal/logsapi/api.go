@@ -1,6 +1,7 @@
 package logsapi
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/xeaser/citriage/config"
 	"github.com/xeaser/citriage/internal/cache"
+	"github.com/xeaser/citriage/pkg/proxyerrors"
 )
 
 const (
@@ -44,7 +46,14 @@ func (a api) getBuildLogs(w http.ResponseWriter, r *http.Request) {
 	filePath, err := a.downloader.GetLogFile(buildID)
 	if err != nil {
 		a.logger.ErrorContext(ctx, fmt.Sprintf("Error getting log file for build %d: %v", buildID, err))
-		http.Error(w, fmt.Sprintf("Failed to retrieve log file due to error: %s", err.Error()), http.StatusNoContent)
+
+		if errors.Is(err, proxyerrors.ErrUpstreamClientError) {
+			http.Error(w, fmt.Sprintf("The requested resource was not found on the upstream server, err: %s", err.Error()), http.StatusNotFound)
+		} else if errors.Is(err, proxyerrors.ErrUpstreamServerError) {
+			http.Error(w, fmt.Sprintf("The upstream server is currently unavailable or malfunctioning., err: %s", err.Error()), http.StatusNotFound)
+		} else {
+			http.Error(w, fmt.Sprintf("Failed to retrieve log file due to error: %s", err.Error()), http.StatusInternalServerError)
+		}
 		return
 	}
 

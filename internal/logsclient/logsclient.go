@@ -30,13 +30,13 @@ func (l *LogsClient) FetchLog(buildID string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("proxy server returned an error: %s", resp.Status)
-	}
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("proxy server returned an error (%s): %s", resp.Status, string(body))
 	}
 
 	return body, nil

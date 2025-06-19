@@ -13,6 +13,7 @@ This project consists of two components: a caching log proxy server and a comman
 
 -   **Efficient Caching**: The server downloads each log only once and caches it locally on disk.
 -   **Concurrent Safe**: Handles multiple simultaneous requests for the same log without redundant downloads using a `sync.Map` to act as a per-resource lock.
+-   **Upstream Server Error Handling**: Handles Internal errors as well jenkins server errors.
 -   **Deduplication**: The client implements two forms of deduplication:
     1.  **Timestamp Removal**: Strips the leading `[timestamp]` from each log line.
     2.  **Consecutive Line Consolidation**: Identical consecutive lines are collapsed into a single line with a repeat count (e.g., `... (repeated 5 times)`).
@@ -35,8 +36,9 @@ The project follows idiomatic Go standards for a project with multiple binaries:
 │   ├── logsapi/            # HTTP handlers and routing for the log proxy server
 │   ├── logsclient/         # Log API client logic
 │   └── server/             # Log proxy server initialization
-├── .pkg/                 	# Shared HttpClient Wrapper
-├── .cache/                 # Directory for cached log files
+├── pkg/                 	
+│   ├── proxyerrors/        # Shared Error types
+│   ├── httpclient/         # Shared HttpClient Wrapper
 └── Makefile
 ```
 
@@ -83,22 +85,12 @@ A `Makefile` is provided to simplify common operations.
 
 ---
 
-## Possible Improvements and Assumptions
+## Possible Improvements
 
-Several key decisions were made during development to balance the requirements with simplicity and robustness.
-
--   **API Design (Unified JSON Response)**:
-    -   **Decision**: The server *always* returns a `Content-Type: application/json` response. The JSON object contains either a `logData` field on success or an `error` field on failure.
-    -   **Justification**: This creates a strong, predictable API contract. The client's logic is simplified as it no longer needs to switch parsing strategies based on the HTTP status code or `Content-Type` header. This is more robust than a mixed-content-type approach.
-
--   **Caching Strategy**:
-    -   **Decision**: Logs are cached on the local filesystem. To prevent the "thundering herd" problem, a `sync.Map` is used as a set of locks. When a request arrives for a log that is not cached and is not yet being downloaded, a lock is acquired for that `buildID`. Subsequent requests for the same ID will wait until the first download is complete.
-    -   **Justification**: This provides an efficient and concurrently safe caching mechanism without requiring external dependencies like Redis.
-
--   **HTTP Framework**:
-    -   **Decision**: `gorilla/mux` was chosen for routing.
-    -   **Justification**: While `net/http` would have been sufficient, `gorilla/mux` provides a clean and expressive way to handle URL parameters (like `{build_id}`), which is a common requirement in RESTful services.
-
--   **Client-Side Deduplication**:
-    -   **Decision**: The second deduplication technique chosen was the consolidation of consecutive identical lines.
-    -   **Justification**: This is a very common source of noise in build logs (e.g., polling messages, repeated warnings). This technique is simple to implement, highly effective at reducing log size, and maintains the chronological context of the log for human readers.
+- Better logger initialization
+- Remote cached file to object store or database as blob data
+- Better routing for GET and HEAD methods
+- Redis for lock over go routine downloading logs for a build
+- Better Error handling for api responses with error contract in json with log data
+- Stop Signals for server
+- Open API Spec for log proxy server

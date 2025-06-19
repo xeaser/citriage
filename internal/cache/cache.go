@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/xeaser/citriage/pkg/httpclient"
+	"github.com/xeaser/citriage/pkg/proxyerrors"
 )
 
 const (
@@ -65,9 +66,14 @@ func (d *Downloader) downloadAndCache(buildID int, destPath string) error {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
+		return fmt.Errorf("%w: received status %s", proxyerrors.ErrUpstreamClientError, resp.Status)
+	}
+	if resp.StatusCode >= 500 && resp.StatusCode < 600 {
+		return fmt.Errorf("%w: received status %s", proxyerrors.ErrUpstreamServerError, resp.Status)
+	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("remote server returned non-200 status: %s", resp.Status)
-
+		return fmt.Errorf("upstream server returned unexpected status: %s", resp.Status)
 	}
 
 	tmpFile, err := os.CreateTemp(d.cacheDir, "download-*.tmp")

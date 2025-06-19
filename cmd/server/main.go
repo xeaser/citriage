@@ -40,6 +40,5 @@ func main() {
 	s := server.New(&cfg, logger, downloader)
 	s.ListenAndServe(ctx)
 
-	// TODO: stop signals
 	select {}
 }
